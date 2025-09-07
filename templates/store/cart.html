@@ -4,59 +4,62 @@
 {% block title %}Shopping Cart ({{ cart_items.count|default:0 }}) - Walmart Clone{% endblock %}
 
 {% block content %}
-<div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
-    <div class="lg:col-span-3">
-        <h1 class="text-2xl font-bold text-gray-900 mb-4">Shopping Cart ({{ cart_items.count|default:0 }} item{{ cart_items.count|pluralize }})</h1>
-        {% if user.is_authenticated and cart_items %}
-            <form method="post" action="{% url 'clear_cart' %}">
+<div class="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-6">
+    <h1 class="text-2xl font-bold text-gray-900 mb-4">
+        Shopping Cart ({{ cart_items.count|default:0 }} item{{ cart_items.count|pluralize }})
+    </h1>
+
+    {% if user.is_authenticated and cart_items %}
+        <div class="flex justify-end mb-4">
+            <form action="{% url 'clear_cart' %}" method="post">
                 {% csrf_token %}
-                <button type="submit" class="text-blue-600 hover:underline mb-4">Clear cart</button>
+                <button type="submit" class="text-red-600 hover:text-red-800">Clear cart</button>
             </form>
-            <div class="bg-white rounded-lg shadow-md p-6">
-                {% for item in cart_items %}
-                    <div class="flex items-start border-b py-4">
-                        <img src="{{ item.product.image.url|default:'https://via.placeholder.com/100' }}" alt="{{ item.product.name }}" class="w-24 h-24 object-contain mr-4">
-                        <div class="flex-1">
-                            <a href="{% url 'product_detail' item.product.id %}" class="text-lg font-semibold text-gray-900 hover:text-blue-600">{{ item.product.name }}</a>
-                            <p class="text-gray-600 mt-1">{{ item.product.description|truncatewords:15 }}</p>
-                            <div class="flex space-x-4 mt-2 text-sm">
-                                <a href="#" class="text-blue-600 hover:underline">Save for later</a>
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-lg font-semibold text-gray-900">${{ item.product.price|mul:item.quantity|floatformat:2 }}</p>
-                            <form method="post" action="{% url 'update_cart' item.id %}">
-                                {% csrf_token %}
-                                <div class="flex items-center mt-2">
-                                    <label for="quantity-{{ item.id }}" class="text-gray-700 mr-2">Qty:</label>
-                                    <input type="number" id="quantity-{{ item.id }}" name="quantity" value="{{ item.quantity }}" min="0" max="{{ item.product.stock }}" class="w-16 p-1 border rounded-md">
-                                    <button type="submit" class="ml-2 text-blue-600 hover:underline">Update</button>
-                                    <a href="{% url 'remove_from_cart' item.id %}" class="ml-2 text-red-600 hover:underline">Remove</a>
-                                </div>
-                            </form>
+        </div>
+
+        <div class="space-y-4">
+            {% for item in cart_items %}
+                <div class="flex items-center border-b py-4">
+                    <div class="flex-1">
+                        <img src="{{ item.product.image.url|default:'/placeholder.svg' }}" alt="{{ item.product.name }}" class="w-20 h-20 object-cover mr-4">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-800">{{ item.product.name }}</h3>
+                            <p class="text-gray-600">{{ item.product.description|truncatewords:15 }}</p>
+                            <a href="#" class="text-blue-600 hover:underline">Save for later</a>
                         </div>
                     </div>
-                {% endfor %}
-                <p class="text-gray-700 mt-4">
-                    {% if subtotal >= 35 %}
-                        Congratulations! You qualify for FREE shipping
-                    {% else %}
-                        Add ${{ 35|sub:subtotal|floatformat:2 }} more to qualify for FREE shipping
-                    {% endif %}
-                </p>
+                    <div class="text-right">
+                        <p class="text-lg font-semibold text-gray-800">${{ item.product.price|mul:item.quantity|floatformat:2 }}</p>
+                        <form action="{% url 'update_cart' item.id %}" method="post" class="flex items-center">
+                            {% csrf_token %}
+                            <label for="quantity-{{ item.id }}" class="mr-2">Qty:</label>
+                            <input type="number" id="quantity-{{ item.id }}" name="quantity" value="{{ item.quantity }}" min="0" class="w-16 p-1 border rounded-md">
+                            <button type="submit" name="update" class="ml-2 text-blue-600 hover:text-blue-800">Update</button>
+                            <button type="submit" name="remove" class="ml-2 text-red-600 hover:text-red-800">Remove</button>
+                        </form>
+                    </div>
+                </div>
+            {% endfor %}
+            <div class="text-right text-gray-600">
+                {% if subtotal >= 35 %}
+                    <p class="text-green-600">Congratulations! You qualify for FREE shipping</p>
+                {% else %}
+                    <p>Add ${{ 35|sub:subtotal|floatformat:2 }} more to qualify for FREE shipping</p>
+                {% endif %}
             </div>
-        {% else %}
-            <div class="bg-white rounded-lg shadow-md p-6 text-center">
-                <h2 class="text-xl font-semibold text-gray-900">Your cart is empty</h2>
-                <p class="text-gray-600 mt-2">Looks like you haven't added anything to your cart yet. Start shopping to fill it up!</p>
-                <a href="{% url 'home' %}" class="mt-4 inline-block bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition">Start Shopping</a>
-            </div>
-        {% endif %}
-    </div>
+        </div>
+    {% else %}
+        <div class="text-center">
+            <h2 class="text-xl font-semibold text-gray-800">Your cart is empty</h2>
+            <p class="text-gray-600">Looks like you haven't added anything to your cart yet. Start shopping to fill it up!</p>
+            <a href="{% url 'home' %}" class="inline-block mt-4 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">Start Shopping</a>
+        </div>
+    {% endif %}
+
     {% if user.is_authenticated and cart_items %}
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <h2 class="text-xl font-semibold text-gray-900 mb-4">Order Summary</h2>
-            <div class="space-y-2">
+        <div class="mt-6 border-t pt-4">
+            <h2 class="text-xl font-semibold text-gray-800">Order Summary</h2>
+            <div class="mt-4 space-y-2">
                 <div class="flex justify-between">
                     <span>Subtotal ({{ cart_items.count }} item{{ cart_items.count|pluralize }})</span>
                     <span>${{ subtotal|floatformat:2 }}</span>
@@ -69,15 +72,18 @@
                     <span>Estimated tax</span>
                     <span>${{ tax_amount|floatformat:2 }}</span>
                 </div>
-                <div class="flex justify-between font-semibold text-lg mt-2">
+                <div class="flex justify-between font-semibold text-lg">
                     <span>Estimated total</span>
                     <span>${{ total|floatformat:2 }}</span>
                 </div>
             </div>
-            <button class="mt-4 block w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition text-center" disabled>Continue to checkout</button>
-            <div class="mt-4">
-                <p class="text-gray-700 font-semibold">We accept:</p>
-                <div class="flex space-x-2 mt-2">
+            <form action="{% url 'checkout' %}" method="post" class="mt-4">
+                {% csrf_token %}
+                <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition">Proceed to Checkout</button>
+            </form>
+            <div class="mt-4 text-center">
+                <p>We accept:</p>
+                <div class="flex justify-center space-x-2">
                     <img src="https://via.placeholder.com/40?text=Visa" alt="Visa">
                     <img src="https://via.placeholder.com/40?text=MasterCard" alt="MasterCard">
                     <img src="https://via.placeholder.com/40?text=PayPal" alt="PayPal">

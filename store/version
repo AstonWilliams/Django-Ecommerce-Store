@@ -8,14 +8,9 @@ from django.core.paginator import Paginator
 from django.db.models import Q, Count, Avg
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
-from django.db import transaction
 import json
-from .models import Product, Category, Cart, CartItem, Order, OrderItem, UserProfile
+from .models import Product, Category, Cart, CartItem
 import logging
-from decimal import Decimal
-import random
-import string
-
 logger = logging.getLogger(__name__)
 
 def home(request):
@@ -26,6 +21,7 @@ def home(request):
     
     categories = Category.objects.filter(is_active=True)
     
+    # Get trending products
     trending_products = Product.objects.filter(
         is_trending=True, 
         is_active=True
@@ -38,6 +34,7 @@ def home(request):
         'has_more_products': Product.objects.count() > 12,
     }
     
+    # Add cart count for authenticated users
     if request.user.is_authenticated:
         cart, created = Cart.objects.get_or_create(user=request.user)
         context['cart_count'] = CartItem.objects.filter(cart=cart).count()
@@ -47,35 +44,6 @@ def home(request):
         )
     
     return render(request, 'store/home.html', context)
-
-def product_detail(request, product_id):
-    product = get_object_or_404(Product, id=product_id, is_active=True)
-    
-    related_products = Product.objects.filter(
-        category=product.category,
-        is_active=True
-    ).exclude(id=product_id).annotate(
-        review_count=Count('reviews'),
-        avg_rating=Avg('reviews__rating')
-    )[:8]
-    
-    if hasattr(product, 'view_count'):
-        product.view_count += 1
-        product.save(update_fields=['view_count'])
-    
-    context = {
-        'product': product,
-        'related_products': related_products,
-    }
-    
-    if request.user.is_authenticated:
-        cart, created = Cart.objects.get_or_create(user=request.user)
-        context['in_cart'] = CartItem.objects.filter(
-            cart=cart, 
-            product=product
-        ).exists()
-    
-    return render(request, 'store/product_detail.html', context)
 
 def search_view(request):
     query = request.GET.get('q', '')
@@ -113,9 +81,11 @@ def signin_view(request):
             messages.error(request, 'Please enter both username and password')
             return render(request, 'store/signin.html')
         
+        # Try to authenticate with username or email
         user = authenticate(request, username=username, password=password)
         
         if user is None:
+            # Try with email if username failed
             try:
                 user_obj = User.objects.get(email=username)
                 user = authenticate(request, username=user_obj.username, password=password)
@@ -125,8 +95,9 @@ def signin_view(request):
         if user is not None:
             if user.is_active:
                 login(request, user)
-                UserProfile.objects.get_or_create(user=user, defaults={'balance': 1000.00})
                 messages.success(request, f'Welcome back, {user.first_name or user.username}!')
+                
+                # Redirect to next page or home
                 next_url = request.GET.get('next', 'home')
                 return redirect(next_url)
             else:
@@ -177,126 +148,83 @@ def signup_view(request):
             return render(request, 'store/signup.html')
         
         try:
-            with transaction.atomic():
-                user = User.objects.create_user(
-                    username=username,
-                    email=email,
-                    password=password,
-                    first_name=first_name,
-                    last_name=last_name
-                )
-                UserProfile.objects.create(user=user, balance=1000.00)
-                login(request, user)
-                messages.success(request, f'Welcome to Walmart Clone, {first_name or username}!')
-                return redirect('home')
+            user = User.objects.create_user(
+                username=username,
+                email=email,
+                password=password,
+                first_name=first_name,
+                last_name=last_name
+            )
+            
+            # Auto login after signup
+            login(request, user)
+            messages.success(request, f'Welcome to Walmart Clone, {first_name or username}!')
+            return redirect('home')
+            
         except Exception as e:
-            logger.error(f"Error creating user: {e}")
-            messages.error(request, 'Failed to create account. Please try again.')
+            messages.error(request, 'An error occurred while creating your account')
     
     return render(request, 'store/signup.html')
 
+def signout_view(request):
+    if request.user.is_authenticated:
+        username = request.user.first_name or request.user.username
+        logout(request)
+        messages.success(request, f'Goodbye, {username}! You have been signed out.')
+    return redirect('home')
+
+def product_detail(request, product_id):
+    product = get_object_or_404(Product, id=product_id, is_active=True)
+    
+    related_products = Product.objects.filter(
+        category=product.category,
+        is_active=True
+    ).exclude(id=product_id).annotate(
+        review_count=Count('reviews'),
+        avg_rating=Avg('reviews__rating')
+    )[:8]
+    
+    # Track product view (for analytics)
+    if hasattr(product, 'view_count'):
+        product.view_count += 1
+        product.save(update_fields=['view_count'])
+    
+    context = {
+        'product': product,
+        'related_products': related_products,
+    }
+    
+    # Add cart info for authenticated users
+    if request.user.is_authenticated:
+        cart, created = Cart.objects.get_or_create(user=request.user)
+        context['in_cart'] = CartItem.objects.filter(
+            cart=cart, 
+            product=product
+        ).exists()
+    
+    return render(request, 'store/product_detail.html', context)
+
+from decimal import Decimal
+
 @login_required
-def profile_view(request):
-    user = request.user
-    profile, created = UserProfile.objects.get_or_create(user=user, defaults={'balance': 1000.00})
-    orders = Order.objects.filter(user=user).order_by('-created_at')
+def cart_view(request):
+    cart, created = Cart.objects.get_or_create(user=request.user)
+    cart_items = CartItem.objects.filter(cart=cart).select_related('product')
     
-    for order in orders:
-        order.update_status()
+    subtotal = sum(Decimal(item.product.price) * item.quantity for item in cart_items)
+    shipping_cost = Decimal(0) if subtotal >= Decimal(35) else Decimal(5.99)
+    tax_rate = Decimal(0.08)
+    tax_amount = subtotal * tax_rate
+    total = subtotal + shipping_cost + tax_amount
     
-    return render(request, 'store/profile.html', {
-        'profile': profile,
-        'orders': orders,
+    return render(request, 'store/cart.html', {
+        'cart_items': cart_items,
+        'subtotal': subtotal,
+        'shipping_cost': shipping_cost,
+        'tax_amount': tax_amount,
+        'total': total,
+        'free_shipping_threshold': Decimal(35),
     })
-
-@login_required
-@require_http_methods(["POST"])
-def cancel_order(request, order_id):
-    order = get_object_or_404(Order, id=order_id, user=request.user)
-    
-    if order.get_current_status() in ['delivered', 'canceled']:
-        messages.error(request, 'This order cannot be canceled.')
-        return redirect('profile')
-    
-    try:
-        with transaction.atomic():
-            for item in order.orderitem_set.all():
-                product = item.product
-                product.stock += item.quantity
-                product.save()
-            
-            profile, created = UserProfile.objects.get_or_create(user=request.user, defaults={'balance': 1000.00})
-            profile.balance += order.total_amount
-            profile.save()
-            
-            order.status = 'canceled'
-            order.save()
-            
-            messages.success(request, f'Order {order.id} has been canceled and your balance has been refunded.')
-    except Exception as e:
-        logger.error(f"Error canceling order {order_id}: {e}")
-        messages.error(request, 'Failed to cancel order. Please try again.')
-    
-    return redirect('profile')
-
-@login_required
-@require_http_methods(["POST"])
-def checkout_view(request):
-    cart = get_object_or_404(Cart, user=request.user)
-    cart_items = CartItem.objects.filter(cart=cart)
-    
-    if not cart_items:
-        messages.error(request, 'Your cart is empty.')
-        return redirect('cart')
-    
-    try:
-        with transaction.atomic():
-            subtotal = sum(Decimal(item.product.price) * item.quantity for item in cart_items)
-            shipping_cost = Decimal(0) if subtotal >= Decimal(35) else Decimal(5.99)
-            tax_rate = Decimal(0.08)
-            tax_amount = subtotal * tax_rate
-            total = subtotal + shipping_cost + tax_amount
-            
-            profile, created = UserProfile.objects.get_or_create(user=request.user, defaults={'balance': 1000.00})
-            if profile.balance < total:
-                messages.error(request, 'Insufficient balance to complete this order.')
-                return redirect('cart')
-            
-            for item in cart_items:
-                if item.product.stock < item.quantity:
-                    messages.error(request, f'Sorry, {item.product.name} is out of stock.')
-                    return redirect('cart')
-            
-            order = Order.objects.create(
-                user=request.user,
-                total_amount=total,
-                status='pending',
-                tracking_number=''.join(random.choices(string.ascii_uppercase + string.digits, k=12))
-            )
-            
-            for item in cart_items:
-                OrderItem.objects.create(
-                    order=order,
-                    product=item.product,
-                    quantity=item.quantity,
-                    price=item.product.price,
-                    stock_at_purchase=item.product.stock
-                )
-                item.product.stock -= item.quantity
-                item.product.save()
-            
-            profile.balance -= total
-            profile.save()
-            
-            cart_items.delete()
-            
-            messages.success(request, f'Order {order.id} placed successfully! Tracking number: {order.tracking_number}')
-            return redirect('profile')
-    
-    except Exception as e:
-        logger.error(f"Error processing checkout: {e}")
-        messages.error(request, 'Failed to process order. Please try again.')
-        return redirect('cart')
 
 @require_http_methods(["POST"])
 @login_required
@@ -304,20 +232,14 @@ def add_to_cart(request, product_id):
     try:
         logger.info(f"Adding product {product_id} to cart for user {request.user.id}")
         product = get_object_or_404(Product, id=product_id, is_active=True)
-        
-        if product.stock <= 0:
-            return JsonResponse({
-                'success': False,
-                'message': f'{product.name} is out of stock'
-            })
-        
         cart, created = Cart.objects.get_or_create(user=request.user)
+        
         quantity = int(request.POST.get('quantity', 1))
         
-        if quantity <= 0 or quantity > product.stock:
+        if quantity <= 0:
             return JsonResponse({
-                'success': False,
-                'message': 'Invalid quantity or insufficient stock'
+                'success': False, 
+                'message': 'Invalid quantity'
             })
         
         cart_item, created = CartItem.objects.get_or_create(
@@ -327,15 +249,10 @@ def add_to_cart(request, product_id):
         )
         
         if not created:
-            new_quantity = cart_item.quantity + quantity
-            if new_quantity > product.stock:
-                return JsonResponse({
-                    'success': False,
-                    'message': 'Insufficient stock for requested quantity'
-                })
-            cart_item.quantity = new_quantity
+            cart_item.quantity += quantity
             cart_item.save()
         
+        # Get updated cart count
         cart_count = CartItem.objects.filter(cart=cart).count()
         cart_total = sum(
             Decimal(item.product.price) * item.quantity 
@@ -346,7 +263,7 @@ def add_to_cart(request, product_id):
             'success': True,
             'message': f'{product.name} added to cart',
             'cart_count': cart_count,
-            'cart_total': float(cart_total)
+            'cart_total': float(cart_total)  # Convert to float if needed for the frontend
         })
 
     except Exception as e:
@@ -373,10 +290,6 @@ def update_cart(request, item_id):
     try:
         quantity = int(request.POST.get('quantity', 1))
         
-        if quantity > cart_item.product.stock:
-            messages.error(request, f'Only {cart_item.product.stock} items available for {cart_item.product.name}')
-            return redirect('cart')
-        
         if quantity > 0:
             cart_item.quantity = quantity
             cart_item.save()
@@ -390,6 +303,13 @@ def update_cart(request, item_id):
         messages.error(request, 'Invalid quantity')
     
     return redirect('cart')
+
+from django.shortcuts import redirect
+from django.contrib import messages
+from django.views.decorators.http import require_http_methods
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import get_object_or_404
+from .models import Cart, CartItem
 
 @require_http_methods(["POST"])
 @login_required
@@ -432,6 +352,7 @@ def load_more_products(request):
     if category != 'all':
         products = products.filter(category__slug=category)
     
+    # Apply sorting
     if sort_by == 'price-low':
         products = products.order_by('price')
     elif sort_by == 'price-high':
@@ -460,31 +381,4 @@ def load_more_products(request):
         'products': products_data,
         'has_next': page_obj.has_next(),
         'next_page': page_obj.next_page_number() if page_obj.has_next() else None
-    })
-
-def signout_view(request):
-    if request.user.is_authenticated:
-        username = request.user.first_name or request.user.username
-        logout(request)
-        messages.success(request, f'Goodbye, {username}! You have been signed out.')
-    return redirect('home')
-
-@login_required
-def cart_view(request):
-    cart, created = Cart.objects.get_or_create(user=request.user)
-    cart_items = CartItem.objects.filter(cart=cart).select_related('product')
-    
-    subtotal = sum(Decimal(item.product.price) * item.quantity for item in cart_items)
-    shipping_cost = Decimal(0) if subtotal >= Decimal(35) else Decimal(5.99)
-    tax_rate = Decimal(0.08)
-    tax_amount = subtotal * tax_rate
-    total = subtotal + shipping_cost + tax_amount
-    
-    return render(request, 'store/cart.html', {
-        'cart_items': cart_items,
-        'subtotal': subtotal,
-        'shipping_cost': shipping_cost,
-        'tax_amount': tax_amount,
-        'total': total,
-        'free_shipping_threshold': Decimal(35),
     })

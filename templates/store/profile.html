@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% load static store_filters %}
+
+{% block title %}Your Profile - Walmart Clone{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-6">
+    <h1 class="text-2xl font-bold text-gray-900 mb-4">Your Profile</h1>
+    
+    <div class="mb-6">
+        <h2 class="text-xl font-semibold text-gray-800">Account Details</h2>
+        <p class="text-gray-600">Username: {{ user.username }}</p>
+        <p class="text-gray-600">Name: {{ user.first_name }} {{ user.last_name }}</p>
+        <p class="text-gray-600">Email: {{ user.email }}</p>
+        <p class="text-gray-600">Balance: ${{ profile.balance|floatformat:2 }}</p>
+    </div>
+
+    <div class="mb-6">
+        <h2 class="text-xl font-semibold text-gray-800">Order History</h2>
+        {% if orders %}
+            <div class="space-y-4">
+                {% for order in orders %}
+                    <div class="border rounded-md p-4">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <p class="text-gray-700"><strong>Order #{{ order.id }}</strong></p>
+                                <p class="text-gray-600">Placed on: {{ order.created_at|date:"M d, Y, h:i A" }}</p>
+                                <p class="text-gray-600">Status: {{ order.get_current_status|title }}</p>
+                                <p class="text-gray-600">Total: ${{ order.total_amount|floatformat:2 }}</p>
+                                {% if order.tracking_number %}
+                                    <p class="text-gray-600">Tracking Number: {{ order.tracking_number }}</p>
+                                {% endif %}
+                                {% if order.estimated_delivery %}
+                                    <p class="text-gray-600">Estimated Delivery: {{ order.estimated_delivery|date:"M d, Y" }}</p>
+                                {% endif %}
+                            </div>
+                            {% if order.get_current_status not in 'delivered,canceled' %}
+                                <form action="{% url 'cancel_order' order.id %}" method="post" class="inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="text-red-600 hover:text-red-800">Cancel Order</button>
+                                </form>
+                            {% endif %}
+                        </div>
+                        <div class="mt-2">
+                            <h3 class="text-gray-700 font-medium">Items:</h3>
+                            <ul class="list-disc pl-5">
+                                {% for item in order.orderitem_set.all %}
+                                    <li class="text-gray-600">
+                                        {{ item.product.name }} (Qty: {{ item.quantity }}) - ${{ item.price|floatformat:2 }}
+                                        {% if item.product.stock < item.quantity %}
+                                            <span class="text-red-600">(Out of stock)</span>
+                                        {% else %}
+                                            <span class="text-green-600">(In stock)</span>
+                                        {% endif %}
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="text-gray-600">You have no orders yet.</p>
+            <a href="{% url 'home' %}" class="text-blue-600 hover:underline">Start Shopping</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
