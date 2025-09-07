@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Walmart Clone{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="header-top">
+                <div class="logo">
+                    <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                        <circle cx="24" cy="24" r="20" fill="#0071ce"/>
+                        <path d="M24 8l4 12h12l-10 8 4 12-10-8-10 8 4-12-10-8h12z" fill="white"/>
+                    </svg>
+                </div>
+                
+                <div class="search-container">
+                    <input type="text" class="search-input" placeholder="Search everything at Walmart online and in store">
+                    <button class="search-btn">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path d="M19 19l-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="header-actions">
+                    <div class="reorder">
+                        <span>Reorder</span>
+                        <span>My Items</span>
+                    </div>
+                    
+                    {% if user.is_authenticated %}
+                        <div class="account">
+                            <span>Hi, {{ user.username }}</span>
+                            <a href="{% url 'signout' %}">Sign out</a>
+                        </div>
+                    {% else %}
+                        <div class="account">
+                            <a href="{% url 'signin' %}">Sign in</a>
+                            <span>Account</span>
+                        </div>
+                    {% endif %}
+                    
+                    <div class="cart">
+                        <a href="{% url 'cart' %}" class="cart-link">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                <path d="M3 3h2l.4 2M7 13h10l4-8H5.4m1.6 8L5 3H3m4 10v6a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-6m-4 3h.01M9 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <span class="cart-count">0</span>
+                        </a>
+                        <span>$0.00</span>
+                    </div>
+                </div>
+            </div>
+            
+            <nav class="nav">
+                <div class="nav-item">
+                    <span>Departments</span>
+                </div>
+                <div class="nav-item">
+                    <span>Services</span>
+                </div>
+                <a href="#" class="nav-link">Get it Fast</a>
+                <a href="#" class="nav-link">New Arrivals</a>
+                <a href="#" class="nav-link">Halloween</a>
+                <a href="#" class="nav-link">Rollbacks & More</a>
+                <a href="#" class="nav-link">Dinner Made Easy</a>
+                <a href="#" class="nav-link">Tailgating</a>
+                <a href="#" class="nav-link">Baby Event</a>
+                <a href="#" class="nav-link">Pharmacy Delivery</a>
+                <a href="#" class="nav-link">Walmart+</a>
+                <div class="nav-item">
+                    <span>More</span>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main">
+        {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                    <div class="message message-{{ message.tags }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+        
+        {% block content %}
+        {% endblock %}
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 Walmart Clone. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="/static/js/script.js"></script>
+</body>
+</html>

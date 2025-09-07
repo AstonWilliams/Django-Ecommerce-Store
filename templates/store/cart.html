@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+
+{% block title %}Shopping Cart - Walmart Clone{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="cart-container">
+        <div class="cart-main">
+            <div class="cart-header">
+                <h1>Shopping Cart</h1>
+                <span class="item-count">{{ cart_items.count }} item{{ cart_items.count|pluralize }}</span>
+            </div>
+            
+            {% if cart_items %}
+                {% for item in cart_items %}
+                <div class="cart-item">
+                    <div class="item-image">
+                        <img src="{{ item.product.image }}" alt="{{ item.product.name }}">
+                    </div>
+                    
+                    <div class="item-details">
+                        <h3 class="item-name">{{ item.product.name }}</h3>
+                        <p class="item-description">{{ item.product.description|truncatewords:15 }}</p>
+                        
+                        <div class="item-features">
+                            <span class="feature">Free shipping</span>
+                            <span class="feature">Free 90-day returns</span>
+                        </div>
+                        
+                        <div class="item-actions">
+                            <a href="{% url 'remove_from_cart' item.id %}" class="remove-btn">Remove</a>
+                            <button class="save-btn">Save for later</button>
+                        </div>
+                    </div>
+                    
+                    <div class="item-price">
+                        <div class="price">${{ item.product.price }}</div>
+                        
+                        <div class="quantity-controls">
+                            <form method="post" action="{% url 'update_cart' item.id %}" class="quantity-form">
+                                {% csrf_token %}
+                                <button type="button" onclick="decreaseCartQuantity(this)">-</button>
+                                <input type="number" name="quantity" value="{{ item.quantity }}" min="1" onchange="this.form.submit()">
+                                <button type="button" onclick="increaseCartQuantity(this)">+</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-cart">
+                    <h2>Your cart is empty</h2>
+                    <p>Add some products to get started</p>
+                    <a href="{% url 'home' %}" class="btn-primary">Continue Shopping</a>
+                </div>
+            {% endif %}
+        </div>
+        
+        {% if cart_items %}
+        <div class="cart-sidebar">
+            <div class="checkout-card">
+                <button class="btn-checkout">Continue to checkout</button>
+                
+                <div class="signin-prompt">
+                    {% if not user.is_authenticated %}
+                        <p>For the best shopping experience, <a href="{% url 'signin' %}">sign in</a></p>
+                    {% endif %}
+                </div>
+                
+                <div class="order-summary">
+                    <div class="summary-row">
+                        <span>Subtotal ({{ cart_items.count }} item{{ cart_items.count|pluralize }})</span>
+                        <span>${{ total }}</span>
+                    </div>
+                    
+                    <div class="summary-row">
+                        <span>Shipping</span>
+                        <span>Free</span>
+                    </div>
+                    
+                    <div class="summary-row">
+                        <span>Taxes</span>
+                        <span>Calculated at checkout</span>
+                    </div>
+                    
+                    <div class="summary-total">
+                        <span>Estimated total</span>
+                        <span>${{ total }}</span>
+                    </div>
+                </div>
+                
+                <div class="financing-info">
+                    <p>As low as $10/mo or 0% APR with <strong>Affirm</strong></p>
+                    <a href="#">Learn how</a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

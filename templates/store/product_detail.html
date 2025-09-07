@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ product.name }} - Walmart Clone{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="product-detail">
+        <div class="product-images">
+            <div class="main-image">
+                <img src="{{ product.image.url }}" alt="{{ product.name }}" id="mainImage">
+            </div>
+            
+            <div class="thumbnail-images">
+                <img src="{{ product.image.url }}" alt="{{ product.name }}" class="thumbnail active" onclick="changeImage(this.src)">
+                <img src="{{ product.image.url }}" alt="{{ product.name }}" class="thumbnail" onclick="changeImage(this.src)">
+                <img src="{{ product.image.url }}" alt="{{ product.name }}" class="thumbnail" onclick="changeImage(this.src)">
+            </div>
+        </div>
+        
+        <div class="product-info">
+            <div class="product-badges">
+                <span class="badge popular">Popular pick</span>
+                <span class="badge-text">for "{{ product.category.name }}"</span>
+            </div>
+            
+            <h1 class="product-title">{{ product.name }}</h1>
+            
+            <div class="product-rating">
+                <div class="stars">
+                    {% for i in "12345" %}
+                        <span class="star {% if product.rating >= forloop.counter %}filled{% endif %}">★</span>
+                    {% endfor %}
+                </div>
+                <span class="rating-text">({{ product.rating }})</span>
+                <a href="#" class="reviews-link">{{ product.reviews_count }} ratings</a>
+            </div>
+            
+            <div class="product-pricing">
+                <div class="price-main">${{ product.price }}</div>
+                {% if product.original_price %}
+                    <div class="price-original">${{ product.original_price }}</div>
+                {% endif %}
+                <div class="price-note">Price when purchased online</div>
+            </div>
+            
+            <div class="product-features">
+                <div class="feature">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M8 1l2 6h6l-5 4 2 6-5-4-5 4 2-6-5-4h6z" fill="currentColor"/>
+                    </svg>
+                    Free shipping
+                </div>
+                
+                <div class="feature">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M8 1l2 6h6l-5 4 2 6-5-4-5 4 2-6-5-4h6z" fill="currentColor"/>
+                    </svg>
+                    Free 90-day returns
+                </div>
+            </div>
+            
+            <div class="product-description">
+                <h3>About this item</h3>
+                <p>{{ product.description }}</p>
+            </div>
+            
+            <div class="product-actions">
+                <div class="quantity-selector">
+                    <button type="button" onclick="decreaseQuantity()">-</button>
+                    <input type="number" id="quantity" value="1" min="1">
+                    <button type="button" onclick="increaseQuantity()">+</button>
+                </div>
+                
+                <button class="btn-add-cart btn-large" onclick="addToCart({{ product.id }})">
+                    Add to cart
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Related Products -->
+    {% if related_products %}
+    <section class="related-products">
+        <h2>Related Products</h2>
+        <div class="products-grid">
+            {% for product in related_products %}
+            <div class="product-card">
+                <div class="product-image">
+                    <img src="{{ product.image.url }}" alt="{{ product.name }}">
+                </div>
+                
+                <div class="product-info">
+                    <div class="product-price">
+                        <span class="current-price">${{ product.price }}</span>
+                    </div>
+                    
+                    <h3 class="product-name">
+                        <a href="{% url 'product_detail' product.id %}">{{ product.name }}</a>
+                    </h3>
+                    
+                    <button class="btn-add-cart" onclick="addToCart({{ product.id }})">
+                        Add
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+</div>
+{% endblock %}
