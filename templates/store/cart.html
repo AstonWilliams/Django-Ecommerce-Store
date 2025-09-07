@@ -1,101 +1,89 @@
 {% extends 'base.html' %}
+{% load store_filters %}
 
-{% block title %}Shopping Cart - Walmart Clone{% endblock %}
+{% block title %}Shopping Cart ({{ cart_items.count|default:0 }}) - Walmart Clone{% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="cart-container">
-        <div class="cart-main">
-            <div class="cart-header">
-                <h1>Shopping Cart</h1>
-                <span class="item-count">{{ cart_items.count }} item{{ cart_items.count|pluralize }}</span>
-            </div>
-            
-            {% if cart_items %}
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+    <div class="lg:col-span-3">
+        <h1 class="text-2xl font-bold text-gray-900 mb-4">Shopping Cart ({{ cart_items.count|default:0 }} item{{ cart_items.count|pluralize }})</h1>
+        {% if user.is_authenticated and cart_items %}
+            <form method="post" action="{% url 'clear_cart' %}">
+                {% csrf_token %}
+                <button type="submit" class="text-blue-600 hover:underline mb-4">Clear cart</button>
+            </form>
+            <div class="bg-white rounded-lg shadow-md p-6">
                 {% for item in cart_items %}
-                <div class="cart-item">
-                    <div class="item-image">
-                        <img src="{{ item.product.image }}" alt="{{ item.product.name }}">
-                    </div>
-                    
-                    <div class="item-details">
-                        <h3 class="item-name">{{ item.product.name }}</h3>
-                        <p class="item-description">{{ item.product.description|truncatewords:15 }}</p>
-                        
-                        <div class="item-features">
-                            <span class="feature">Free shipping</span>
-                            <span class="feature">Free 90-day returns</span>
+                    <div class="flex items-start border-b py-4">
+                        <img src="{{ item.product.image.url|default:'https://via.placeholder.com/100' }}" alt="{{ item.product.name }}" class="w-24 h-24 object-contain mr-4">
+                        <div class="flex-1">
+                            <a href="{% url 'product_detail' item.product.id %}" class="text-lg font-semibold text-gray-900 hover:text-blue-600">{{ item.product.name }}</a>
+                            <p class="text-gray-600 mt-1">{{ item.product.description|truncatewords:15 }}</p>
+                            <div class="flex space-x-4 mt-2 text-sm">
+                                <a href="#" class="text-blue-600 hover:underline">Save for later</a>
+                            </div>
                         </div>
-                        
-                        <div class="item-actions">
-                            <a href="{% url 'remove_from_cart' item.id %}" class="remove-btn">Remove</a>
-                            <button class="save-btn">Save for later</button>
-                        </div>
-                    </div>
-                    
-                    <div class="item-price">
-                        <div class="price">${{ item.product.price }}</div>
-                        
-                        <div class="quantity-controls">
-                            <form method="post" action="{% url 'update_cart' item.id %}" class="quantity-form">
+                        <div class="text-right">
+                            <p class="text-lg font-semibold text-gray-900">${{ item.product.price|mul:item.quantity|floatformat:2 }}</p>
+                            <form method="post" action="{% url 'update_cart' item.id %}">
                                 {% csrf_token %}
-                                <button type="button" onclick="decreaseCartQuantity(this)">-</button>
-                                <input type="number" name="quantity" value="{{ item.quantity }}" min="1" onchange="this.form.submit()">
-                                <button type="button" onclick="increaseCartQuantity(this)">+</button>
+                                <div class="flex items-center mt-2">
+                                    <label for="quantity-{{ item.id }}" class="text-gray-700 mr-2">Qty:</label>
+                                    <input type="number" id="quantity-{{ item.id }}" name="quantity" value="{{ item.quantity }}" min="0" max="{{ item.product.stock }}" class="w-16 p-1 border rounded-md">
+                                    <button type="submit" class="ml-2 text-blue-600 hover:underline">Update</button>
+                                    <a href="{% url 'remove_from_cart' item.id %}" class="ml-2 text-red-600 hover:underline">Remove</a>
+                                </div>
                             </form>
                         </div>
                     </div>
-                </div>
                 {% endfor %}
-            {% else %}
-                <div class="empty-cart">
-                    <h2>Your cart is empty</h2>
-                    <p>Add some products to get started</p>
-                    <a href="{% url 'home' %}" class="btn-primary">Continue Shopping</a>
-                </div>
-            {% endif %}
-        </div>
-        
-        {% if cart_items %}
-        <div class="cart-sidebar">
-            <div class="checkout-card">
-                <button class="btn-checkout">Continue to checkout</button>
-                
-                <div class="signin-prompt">
-                    {% if not user.is_authenticated %}
-                        <p>For the best shopping experience, <a href="{% url 'signin' %}">sign in</a></p>
+                <p class="text-gray-700 mt-4">
+                    {% if subtotal >= 35 %}
+                        Congratulations! You qualify for FREE shipping
+                    {% else %}
+                        Add ${{ 35|sub:subtotal|floatformat:2 }} more to qualify for FREE shipping
                     {% endif %}
+                </p>
+            </div>
+        {% else %}
+            <div class="bg-white rounded-lg shadow-md p-6 text-center">
+                <h2 class="text-xl font-semibold text-gray-900">Your cart is empty</h2>
+                <p class="text-gray-600 mt-2">Looks like you haven't added anything to your cart yet. Start shopping to fill it up!</p>
+                <a href="{% url 'home' %}" class="mt-4 inline-block bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition">Start Shopping</a>
+            </div>
+        {% endif %}
+    </div>
+    {% if user.is_authenticated and cart_items %}
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Order Summary</h2>
+            <div class="space-y-2">
+                <div class="flex justify-between">
+                    <span>Subtotal ({{ cart_items.count }} item{{ cart_items.count|pluralize }})</span>
+                    <span>${{ subtotal|floatformat:2 }}</span>
                 </div>
-                
-                <div class="order-summary">
-                    <div class="summary-row">
-                        <span>Subtotal ({{ cart_items.count }} item{{ cart_items.count|pluralize }})</span>
-                        <span>${{ total }}</span>
-                    </div>
-                    
-                    <div class="summary-row">
-                        <span>Shipping</span>
-                        <span>Free</span>
-                    </div>
-                    
-                    <div class="summary-row">
-                        <span>Taxes</span>
-                        <span>Calculated at checkout</span>
-                    </div>
-                    
-                    <div class="summary-total">
-                        <span>Estimated total</span>
-                        <span>${{ total }}</span>
-                    </div>
+                <div class="flex justify-between">
+                    <span>Shipping</span>
+                    <span>{% if subtotal >= 35 %}Free{% else %}${{ shipping_cost|floatformat:2 }}{% endif %}</span>
                 </div>
-                
-                <div class="financing-info">
-                    <p>As low as $10/mo or 0% APR with <strong>Affirm</strong></p>
-                    <a href="#">Learn how</a>
+                <div class="flex justify-between">
+                    <span>Estimated tax</span>
+                    <span>${{ tax_amount|floatformat:2 }}</span>
+                </div>
+                <div class="flex justify-between font-semibold text-lg mt-2">
+                    <span>Estimated total</span>
+                    <span>${{ total|floatformat:2 }}</span>
+                </div>
+            </div>
+            <button class="mt-4 block w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition text-center" disabled>Continue to checkout</button>
+            <div class="mt-4">
+                <p class="text-gray-700 font-semibold">We accept:</p>
+                <div class="flex space-x-2 mt-2">
+                    <img src="https://via.placeholder.com/40?text=Visa" alt="Visa">
+                    <img src="https://via.placeholder.com/40?text=MasterCard" alt="MasterCard">
+                    <img src="https://via.placeholder.com/40?text=PayPal" alt="PayPal">
                 </div>
             </div>
         </div>
-        {% endif %}
-    </div>
+    {% endif %}
 </div>
 {% endblock %}

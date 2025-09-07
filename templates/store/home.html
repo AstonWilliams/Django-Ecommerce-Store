@@ -1,102 +1,87 @@
 {% extends 'base.html' %}
+{% load store_filters %}
 
-{% block title %}Walmart Clone - Home{% endblock %}
+{% block title %}Walmart Clone - Save Money. Live Better.{% endblock %}
 
 {% block content %}
-<div class="container">
-    <!-- Hero Section -->
-    <section class="hero">
-        <div class="hero-grid">
-            <div class="hero-card">
-                <h3>Introducing our fall home catalog</h3>
-                <p>Shop living room</p>
-                <button class="btn-secondary">Shop now</button>
-            </div>
-            
-            <div class="hero-card hero-main">
-                <h2>Fall fashion for all</h2>
-                <p>Dresses to jackets</p>
-                <button class="btn-primary">Shop now</button>
-                <span class="badge">New Arrivals</span>
-            </div>
-            
-            <div class="hero-card">
-                <h3>New: David 28g protein bars</h3>
-                <button class="btn-secondary">Shop now</button>
-            </div>
-            
-            <div class="hero-card">
-                <h3>Introducing our fall home catalog</h3>
-                <button class="btn-secondary">Shop now</button>
-            </div>
-            
-            <div class="hero-card">
-                <h3>Enjoy free samples & more, 9/13</h3>
-                <button class="btn-secondary">Learn more</button>
-            </div>
-            
-            <div class="hero-card">
-                <h3>Save big on gaming PCs until 9/7</h3>
-                <button class="btn-secondary">Shop now</button>
-            </div>
-            
-            <div class="hero-card">
-                <h3>Up to 55% off</h3>
-                <button class="btn-secondary">Shop now</button>
-            </div>
-            
-            <div class="hero-card">
-                <h3>Hot new arrivals</h3>
-            </div>
-        </div>
-    </section>
-
-    <!-- Products Section -->
-    <section class="products-section">
-        <h2>Featured Products</h2>
-        <div class="products-grid">
-            {% for product in products %}
-            <div class="product-card">
-                <div class="product-image">
-                    <img src="{{ product.image.url }}" alt="{{ product.name }}">
-                    <button class="wishlist-btn">
-                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                            <path d="M17.367 3.633a5 5 0 0 0-7.071 0L10 4.929l-.296-.296a5 5 0 1 0-7.071 7.071L10 19.071l7.367-7.367a5 5 0 0 0 0-7.071z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                    </button>
-                </div>
-                
-                <div class="product-info">
-                    <div class="product-price">
-                        <span class="current-price">${{ product.price }}</span>
+<div class="mb-8">
+    <h2 class="text-2xl font-bold text-gray-900 mb-4">Featured Products</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {% for product in products %}
+            <div class="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition">
+                <a href="{% url 'product_detail' product.id %}">
+                    <div class="relative">
                         {% if product.original_price %}
-                            <span class="original-price">${{ product.original_price }}</span>
+                            <span class="absolute top-0 left-0 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-br">
+                                Save {{ product.original_price|sub:product.price|div:product.original_price|mul:100|floatformat:0 }}%
+                            </span>
+                        {% endif %}
+                        <img src="{{ product.image.url|default:'https://via.placeholder.com/200' }}" alt="{{ product.name }}" class="w-full h-48 object-contain">
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900 mt-2">{{ product.name|truncatechars:50 }}</h3>
+                    <div class="flex items-center mt-1">
+                        {% for i in "12345" %}
+                            <span class="text-yellow-400">★</span>
+                        {% endfor %}
+                        <span class="ml-2 text-gray-600 text-sm">({{ product.reviews_count }})</span>
+                    </div>
+                    <div class="mt-2">
+                        <span class="text-lg font-bold text-gray-900">${{ product.price|floatformat:2 }}</span>
+                        {% if product.original_price %}
+                            <span class="text-sm text-gray-500 line-through ml-2">${{ product.original_price|floatformat:2 }}</span>
                         {% endif %}
                     </div>
-                    
-                    <h3 class="product-name">
-                        <a href="{% url 'product_detail' product.id %}">{{ product.name }}</a>
-                    </h3>
-                    
-                    <div class="product-rating">
-                        <div class="stars">
-                            {% for i in "12345" %}
-                                <span class="star {% if product.rating >= forloop.counter %}filled{% endif %}">★</span>
-                            {% endfor %}
-                        </div>
-                        <span class="rating-count">({{ product.reviews_count }})</span>
-                    </div>
-                    
-                    <button class="btn-add-cart" onclick="addToCart({{ product.id }})">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                            <path d="M8 1v14M1 8h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                        </svg>
-                        Add
-                    </button>
-                </div>
+                </a>
+                {% if user.is_authenticated %}
+                    <form class="add-to-cart-form" data-product-id="{{ product.id }}">
+                        {% csrf_token %}
+                        <input type="hidden" name="quantity" value="1">
+                        <button type="submit" class="mt-4 w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition">Add to cart</button>
+                    </form>
+                {% else %}
+                    <a href="{% url 'signin' %}?next={% url 'product_detail' product.id %}" class="mt-4 block w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition text-center">Sign in to add to cart</a>
+                {% endif %}
             </div>
-            {% endfor %}
+        {% empty %}
+            <p class="text-gray-600">No products available at the moment.</p>
+        {% endfor %}
+    </div>
+    {% if has_more_products %}
+        <div class="mt-6 text-center">
+            <a href="{% url 'search' %}" class="text-blue-600 hover:underline">Load more products</a>
         </div>
-    </section>
+    {% endif %}
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const forms = document.querySelectorAll('.add-to-cart-form');
+        forms.forEach(form => {
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const productId = form.getAttribute('data-product-id');
+                const formData = new FormData(form);
+                try {
+                    const response = await fetch(`/add-to-cart/${productId}/`, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+                        }
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        showNotification(data.message, 'success');
+                        document.getElementById('cart-count').textContent = data.cart_count;
+                        document.getElementById('cart-total').textContent = data.cart_total.toFixed(2);
+                    } else {
+                        showNotification(data.message, 'error');
+                    }
+                } catch (error) {
+                    showNotification('An error occurred while adding to cart', 'error');
+                }
+            });
+        });
+    });
+</script>
 {% endblock %}

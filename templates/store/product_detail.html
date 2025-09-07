@@ -1,111 +1,120 @@
 {% extends 'base.html' %}
+{% load store_filters %}
 
 {% block title %}{{ product.name }} - Walmart Clone{% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="product-detail">
-        <div class="product-images">
-            <div class="main-image">
-                <img src="{{ product.image.url }}" alt="{{ product.name }}" id="mainImage">
-            </div>
-            
-            <div class="thumbnail-images">
-                <img src="{{ product.image.url }}" alt="{{ product.name }}" class="thumbnail active" onclick="changeImage(this.src)">
-                <img src="{{ product.image.url }}" alt="{{ product.name }}" class="thumbnail" onclick="changeImage(this.src)">
-                <img src="{{ product.image.url }}" alt="{{ product.name }}" class="thumbnail" onclick="changeImage(this.src)">
-            </div>
-        </div>
-        
-        <div class="product-info">
-            <div class="product-badges">
-                <span class="badge popular">Popular pick</span>
-                <span class="badge-text">for "{{ product.category.name }}"</span>
-            </div>
-            
-            <h1 class="product-title">{{ product.name }}</h1>
-            
-            <div class="product-rating">
-                <div class="stars">
-                    {% for i in "12345" %}
-                        <span class="star {% if product.rating >= forloop.counter %}filled{% endif %}">★</span>
-                    {% endfor %}
-                </div>
-                <span class="rating-text">({{ product.rating }})</span>
-                <a href="#" class="reviews-link">{{ product.reviews_count }} ratings</a>
-            </div>
-            
-            <div class="product-pricing">
-                <div class="price-main">${{ product.price }}</div>
-                {% if product.original_price %}
-                    <div class="price-original">${{ product.original_price }}</div>
-                {% endif %}
-                <div class="price-note">Price when purchased online</div>
-            </div>
-            
-            <div class="product-features">
-                <div class="feature">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                        <path d="M8 1l2 6h6l-5 4 2 6-5-4-5 4 2-6-5-4h6z" fill="currentColor"/>
-                    </svg>
-                    Free shipping
-                </div>
-                
-                <div class="feature">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                        <path d="M8 1l2 6h6l-5 4 2 6-5-4-5 4 2-6-5-4h6z" fill="currentColor"/>
-                    </svg>
-                    Free 90-day returns
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div class="lg:col-span-2">
+        <nav class="text-sm text-gray-600 mb-4">
+            <a href="{% url 'home' %}" class="hover:text-blue-600">Home</a> /
+            <a href="#" class="hover:text-blue-600">{{ product.category.name }}</a> /
+            <span>{{ product.name|truncatechars:50 }}</span>
+        </nav>
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <img src="{{ product.image.url|default:'https://via.placeholder.com/400' }}" alt="{{ product.name }}" class="w-full h-96 object-contain">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">{{ product.name }}</h1>
+                    <div class="flex items-center mt-2">
+                        {% for i in "12345" %}
+                            <span class="text-yellow-400">★</span>
+                        {% endfor %}
+                        <span class="ml-2 text-gray-600">({{ product.reviews_count }} reviews)</span>
+                    </div>
+                    <div class="mt-4">
+                        <span class="text-2xl font-bold text-gray-900">${{ product.price|floatformat:2 }}</span>
+                        {% if product.original_price %}
+                            <span class="text-sm text-gray-500 line-through ml-2">${{ product.original_price|floatformat:2 }}</span>
+                            <span class="text-sm text-green-600 ml-2">Save ${{ product.original_price|sub:product.price|floatformat:2 }}</span>
+                        {% endif %}
+                    </div>
+                    <p class="text-gray-600 mt-2">Price when purchased online</p>
+                    <div class="mt-4">
+                        {% if user.is_authenticated %}
+                            <form class="add-to-cart-form" data-product-id="{{ product.id }}">
+                                {% csrf_token %}
+                                <div class="flex items-center space-x-4">
+                                    <label for="quantity" class="text-gray-700">Qty:</label>
+                                    <input type="number" id="quantity" name="quantity" value="1" min="1" max="{{ product.stock }}" class="w-16 p-2 border rounded-md">
+                                    {% if product.stock > 0 %}
+                                        <button type="submit" class="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition">Add to cart</button>
+                                    {% else %}
+                                        <button class="bg-gray-400 text-white py-2 px-4 rounded-md cursor-not-allowed" disabled>Out of stock</button>
+                                    {% endif %}
+                                </div>
+                            </form>
+                        {% else %}
+                            <a href="{% url 'signin' %}?next={% url 'product_detail' product.id %}" class="mt-4 block bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition text-center">Sign in to add to cart</a>
+                        {% endif %}
+                    </div>
+                    <div class="mt-4">
+                        <p class="text-gray-700 font-semibold">How you'll get this item:</p>
+                        <p class="text-gray-600">Free shipping on orders over $35, arrives Mon, Sep 8</p>
+                        <p class="text-gray-600">Free pickup today</p>
+                    </div>
                 </div>
             </div>
-            
-            <div class="product-description">
-                <h3>About this item</h3>
-                <p>{{ product.description }}</p>
-            </div>
-            
-            <div class="product-actions">
-                <div class="quantity-selector">
-                    <button type="button" onclick="decreaseQuantity()">-</button>
-                    <input type="number" id="quantity" value="1" min="1">
-                    <button type="button" onclick="increaseQuantity()">+</button>
-                </div>
-                
-                <button class="btn-add-cart btn-large" onclick="addToCart({{ product.id }})">
-                    Add to cart
-                </button>
+            <div class="mt-6">
+                <h2 class="text-xl font-semibold text-gray-900">About this item</h2>
+                <p class="text-gray-600 mt-2">{{ product.description }}</p>
             </div>
         </div>
     </div>
-    
-    <!-- Related Products -->
-    {% if related_products %}
-    <section class="related-products">
-        <h2>Related Products</h2>
-        <div class="products-grid">
-            {% for product in related_products %}
-            <div class="product-card">
-                <div class="product-image">
-                    <img src="{{ product.image.url }}" alt="{{ product.name }}">
-                </div>
-                
-                <div class="product-info">
-                    <div class="product-price">
-                        <span class="current-price">${{ product.price }}</span>
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">You might also like</h2>
+        {% for product in related_products %}
+            <div class="flex items-center mb-4">
+                <img src="{{ product.image.url|default:'https://via.placeholder.com/100' }}" alt="{{ product.name }}" class="w-20 h-20 object-contain mr-4">
+                <div>
+                    <a href="{% url 'product_detail' product.id %}" class="text-gray-900 hover:text-blue-600">{{ product.name|truncatechars:30 }}</a>
+                    <div class="flex items-center mt-1">
+                        {% for i in "12345" %}
+                            <span class="text-yellow-400">★</span>
+                        {% endfor %}
+                        <span class="ml-2 text-gray-600 text-sm">({{ product.reviews_count }})</span>
                     </div>
-                    
-                    <h3 class="product-name">
-                        <a href="{% url 'product_detail' product.id %}">{{ product.name }}</a>
-                    </h3>
-                    
-                    <button class="btn-add-cart" onclick="addToCart({{ product.id }})">
-                        Add
-                    </button>
+                    <span class="text-gray-900 font-semibold">${{ product.price|floatformat:2 }}</span>
+                    {% if product.original_price %}
+                        <span class="text-sm text-gray-500 line-through ml-2">${{ product.original_price|floatformat:2 }}</span>
+                    {% endif %}
                 </div>
             </div>
-            {% endfor %}
-        </div>
-    </section>
-    {% endif %}
+        {% empty %}
+            <p class="text-gray-600">No related products available.</p>
+        {% endfor %}
+    </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const form = document.querySelector('.add-to-cart-form');
+        if (form) {
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const productId = form.getAttribute('data-product-id');
+                const formData = new FormData(form);
+                try {
+                    const response = await fetch(`/add-to-cart/${productId}/`, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+                        }
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        showNotification(data.message, 'success');
+                        document.getElementById('cart-count').textContent = data.cart_count;
+                        document.getElementById('cart-total').textContent = data.cart_total.toFixed(2);
+                    } else {
+                        showNotification(data.message, 'error');
+                    }
+                } catch (error) {
+                    showNotification('An error occurred while adding to cart', 'error');
+                }
+            });
+        }
+    });
+</script>
 {% endblock %}

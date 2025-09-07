@@ -1,25 +1,28 @@
 // Cart functionality
 function addToCart(productId) {
+  const quantity = 1; // You can modify this to get the quantity from the input field if needed
+
   fetch(`/add-to-cart/${productId}/`, {
     method: "POST",
     headers: {
       "X-CSRFToken": getCookie("csrftoken"),
-      "Content-Type": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
     },
+    body: new URLSearchParams({ quantity: quantity })
   })
     .then((response) => response.json())
     .then((data) => {
       if (data.success) {
-        showMessage("Product added to cart!", "success")
-        updateCartCount()
+        showMessage(data.message, "success");
+        updateCartCount(data.cart_count); // Update cart count from response
       } else {
-        showMessage("Please sign in to add items to cart", "error")
+        showMessage(data.message || "Error adding product to cart", "error");
       }
     })
     .catch((error) => {
-      console.error("Error:", error)
-      showMessage("Error adding product to cart", "error")
-    })
+      console.error("Error:", error);
+      showMessage("Error adding product to cart", "error");
+    });
 }
 
 // Get CSRF token

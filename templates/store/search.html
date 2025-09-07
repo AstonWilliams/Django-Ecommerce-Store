@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+{% load store_filters %}
+
+{% block title %}Search Results for "{{ query }}" - Walmart Clone{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <h1 class="text-2xl font-bold text-gray-900 mb-4">
+        Search Results for "{{ query|default:'All Products' }}"
+        <span class="text-gray-600 text-lg">({{ total_results }} result{{ total_results|pluralize }})</span>
+    </h1>
+    {% if products %}
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {% for product in products %}
+                <div class="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition">
+                    <a href="{% url 'product_detail' product.id %}">
+                        <div class="relative">
+                            {% if product.original_price %}
+                                <span class="absolute top-0 left-0 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-br">
+                                    Save {{ product.original_price|sub:product.price|div:product.original_price|mul:100|floatformat:0 }}%
+                                </span>
+                            {% endif %}
+                            <img src="{{ product.image.url|default:'https://via.placeholder.com/200' }}" alt="{{ product.name }}" class="w-full h-48 object-contain">
+                        </div>
+                        <h3 class="text-lg font-semibold text-gray-900 mt-2">{{ product.name|truncatechars:50 }}</h3>
+                        <div class="flex items-center mt-1">
+                            {% for i in "12345" %}
+                                <span class="text-yellow-400">★</span>
+                            {% endfor %}
+                            <span class="ml-2 text-gray-600 text-sm">({{ product.reviews_count|default:0 }})</span>
+                        </div>
+                        <div class="mt-2">
+                            <span class="text-lg font-bold text-gray-900">${{ product.price|floatformat:2 }}</span>
+                            {% if product.original_price %}
+                                <span class="text-sm text-gray-500 line-through ml-2">${{ product.original_price|floatformat:2 }}</span>
+                            {% endif %}
+                        </div>
+                    </a>
+                    {% if user.is_authenticated %}
+                        <form class="add-to-cart-form" data-product-id="{{ product.id }}">
+                            {% csrf_token %}
+                            <input type="hidden" name="quantity" value="1">
+                            <button type="submit" class="mt-4 w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition">Add to cart</button>
+                        </form>
+                    {% else %}
+                        <a href="{% url 'signin' %}?next={% url 'product_detail' product.id %}" class="mt-4 block w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition text-center">Sign in to add to cart</a>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+        {% if page_obj.has_previous or page_obj.has_next %}
+            <div class="mt-6 flex justify-between items-center">
+                <div>
+                    {% if page_obj.has_previous %}
+                        <a href="?q={{ query }}&page={{ page_obj.previous_page_number }}" class="text-blue-600 hover:underline">Previous</a>
+                    {% else %}
+                        <span class="text-gray-400">Previous</span>
+                    {% endif %}
+                </div>
+                <div class="text-gray-600">
+                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                </div>
+                <div>
+                    {% if page_obj.has_next %}
+                        <a href="?q={{ query }}&page={{ page_obj.next_page_number }}" class="text-blue-600 hover:underline">Next</a>
+                    {% else %}
+                        <span class="text-gray-400">Next</span>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
+    {% else %}
+        <div class="bg-white rounded-lg shadow-md p-6 text-center">
+            <h2 class="text-xl font-semibold text-gray-900">No results found</h2>
+            <p class="text-gray-600 mt-2">Try adjusting your search terms or browse our products.</p>
+            <a href="{% url 'home' %}" class="mt-4 inline-block bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition">Back to Home</a>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const forms = document.querySelectorAll('.add-to-cart-form');
+        forms.forEach(form => {
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const productId = form.getAttribute('data-product-id');
+                const formData = new FormData(form);
+                try {
+                    const response = await fetch(`/add-to-cart/${productId}/`, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+                        }
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        showNotification(data.message, 'success');
+                        document.getElementById('cart-count').textContent = data.cart_count;
+                        document.getElementById('cart-total').textContent = data.cart_total.toFixed(2);
+                    } else {
+                        showNotification(data.message, 'error');
+                    }
+                } catch (error) {
+                    showNotification('An error occurred while adding to cart', 'error');
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}
